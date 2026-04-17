@@ -21,27 +21,24 @@ enum eTexture {
 #include <common.cpp>
 
 GLchar windowTitle[] = "Borsi Barnabas CWZ079 SZG2";
-GLfloat aspectRatio = 1.0f;
-GLint dragged = -1;                 // -1 = nincs huzas
-GLfloat pointRadius = 0.06f;        // kattintasi erzekenyseg vilagkoordinata
-GLfloat pointSizePx = 9.0f;         // 9 pixel atmero
+
+GLint dragged = -1; // -1 = nincs huzas, n = huzott pont indexe
+GLfloat pointRadius = 0.1f; // kontrollpont hitbox merete
+GLfloat pointSizePx = 9.0f; // pixel atmero
+GLfloat lineWidth = 2.0f; // vonalak vastagsaga
 
 vector<vec2> controlPoints;
 vector<vec2> curveVertices;
 
-vec3 curveColor(0.95f, 0.80f, 0.15f);
-vec3 pointColor(0.95f, 0.20f, 0.25f);
-vec3 polygonColor(0.20f, 0.80f, 0.95f);
-vec4 backgroundColor(0.08f, 0.08f, 0.08f, 1.0f);
+vec3 curveColor(0.95f, 0.80f, 0.15f); // gorbe szine
+vec3 pointColor(0.95f, 0.20f, 0.25f); // kontrollpont szine
+vec3 polygonColor(0.20f, 0.80f, 0.95f); // vonal szine
+vec4 backgroundColor(0.08f, 0.08f, 0.08f, 1.0f); // hatter szine
 
 GLuint colorLocation = 0;
+GLfloat aspectRatio = 1.0f;
 
 // -------------------------------------------
-
-GLfloat distanceSquare(vec2 p1, vec2 p2) {
-    vec2 delta = p1 - p2;
-    return dot(delta, delta);
-}
 
 vec2 screenToWorld(double xPos, double yPos) {
     dvec2 mousePosition;
@@ -57,7 +54,7 @@ vec2 screenToWorld(double xPos, double yPos) {
 GLint getActivePoint(const vector<vec2>& points, GLfloat sensitivity, vec2 mousePosition) {
     GLfloat sensitivitySquare = sensitivity * sensitivity;
     for (GLint i = 0; i < (GLint)points.size(); i++)
-        if (distanceSquare(points[i], mousePosition) < sensitivitySquare)
+        if (dot(points[i] - mousePosition, points[i] - mousePosition) < sensitivitySquare)
             return i;
     return -1;
 }
@@ -103,10 +100,6 @@ void uploadVertices(const vector<vec2>& vertices) {
     glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(vec2), vertices.empty() ? nullptr : vertices.data(), GL_DYNAMIC_DRAW);
 }
 
-void setColor(const vec3& c) {
-    glUniform3fv(colorLocation, 1, value_ptr(c));
-}
-
 // -------------------------------------------
 
 void initShaderProgram() {
@@ -144,7 +137,7 @@ void initShaderProgram() {
 
     glEnable(GL_POINT_SMOOTH);
     glPointSize(pointSizePx);
-    glLineWidth(2.0f);
+    glLineWidth(lineWidth);
 }
 
 // -------------------------------------------
@@ -155,21 +148,21 @@ void display(GLFWwindow* window, double currentTime) {
 
     // Kontrollpoligon
     if (controlPoints.size() >= 2) {
-        setColor(polygonColor);
+        glUniform3fv(colorLocation, 1, value_ptr(polygonColor));
         uploadVertices(controlPoints);
         glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)controlPoints.size());
     }
 
     // Gorbe
     if (curveVertices.size() >= 2) {
-        setColor(curveColor);
+        glUniform3fv(colorLocation, 1, value_ptr(curveColor));
         uploadVertices(curveVertices);
         glDrawArrays(GL_LINE_STRIP, 0, (GLsizei)curveVertices.size());
     }
 
     // Kontrollpontok
     if (!controlPoints.empty()) {
-        setColor(pointColor);
+        glUniform3fv(colorLocation, 1, value_ptr(pointColor));
         uploadVertices(controlPoints);
         glDrawArrays(GL_POINTS, 0, (GLsizei)controlPoints.size());
     }
@@ -184,13 +177,9 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, windowWidth, windowHeight);
 
     if (windowWidth < windowHeight)
-        matProjection = ortho(-worldSize, worldSize,
-            -worldSize / aspectRatio, worldSize / aspectRatio,
-            -100.0, 100.0);
+        matProjection = ortho(-worldSize, worldSize, -worldSize / aspectRatio, worldSize / aspectRatio, -100.0, 100.0);
     else
-        matProjection = ortho(-worldSize * aspectRatio, worldSize * aspectRatio,
-            -worldSize, worldSize,
-            -100.0, 100.0);
+        matProjection = ortho(-worldSize * aspectRatio, worldSize * aspectRatio, -worldSize, worldSize, -100.0, 100.0);
 
     glUseProgram(program[SceneProgram]);
     glUniformMatrix4fv(locationMatProjection, 1, GL_FALSE, value_ptr(matProjection));
